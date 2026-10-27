@@ -1,0 +1,5 @@
+Invoice ID,Client Name,Client Email,Amount (in USD),Due Date,Status,Last Follow-Up Date,Notes,Payment Link
+INV-1042,Northwind Traders,ap@northwind.example,1500.00,2026-10-20,Unpaid,,,https://pay.example.com/inv-1042
+INV-1043,Blue Harbor Studio,billing@blueharbor.example,820.00,2026-10-05,Unpaid,,,https://pay.example.com/inv-1043
+INV-1044,Keystone Logistics,finance@keystone.example,4200.00,2026-08-30,Unpaid,,,https://pay.example.com/inv-1044
+INV-1045,Maple & Co,accounts@maple.example,340.00,2026-09-01,Paid,2026-09-02,Paid in full,

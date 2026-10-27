@@ -1,0 +1,15 @@
+{
+  "_note": "Illustrative outputs written to show the tone ladder and the exact output contract. Your model output will differ in wording but must keep the same shape.",
+  "friendly_1_to_14_days": {
+    "email_subject": "Quick reminder: invoice INV-1042",
+    "email_body": "Hi Northwind Traders, just a friendly reminder that invoice INV-1042 for $1,500.00 was due on 2026-10-20. If it is already on its way, please disregard this note.\nYou can settle it here: https://pay.example.com/inv-1042.\n\nRegards,\n[Billing Team]"
+  },
+  "firm_15_to_30_days": {
+    "email_subject": "Invoice INV-1043 is 23 days past due",
+    "email_body": "Hi Blue Harbor Studio, invoice INV-1043 for $820.00 is now 23 days past due. Please confirm the payment date or settle the balance here: https://pay.example.com/inv-1043.\n\nRegards,\n[Billing Team]"
+  },
+  "urgent_31_plus_days": {
+    "email_subject": "Urgent: invoice INV-1044 balance of $4,200.00",
+    "email_body": "Hi Keystone Logistics, the balance of $4,200.00 for invoice INV-1044 is now more than 30 days past due. If paying in full is not possible right now, reply with a date and amount that works and we will set up a payment plan.\n\nRegards,\n[Billing Team]"
+  }
+}
