@@ -1,0 +1,2261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AR Invoice Reminder — pipeline simulation</title>
+<meta name="description" content="An overdue invoice, a tone computed from days past due, a Gmail draft — and a human who presses send." />
+<meta name="robots" content="noindex" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0d1117" />
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-alt: #10161f;
+  --surface: #161d28;
+  --border: #232c3a;
+  --text: #e6edf3;
+  --muted: #94a3b8;
+  --accent: #f0b429;
+  --accent-soft: rgba(240, 180, 41, 0.12);
+  --green: #2ea886;
+  --mono: ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --radius: 14px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 180ms;
+  --dur-med: 320ms;
+  color-scheme: dark;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); }
+a:hover { text-decoration: underline; }
+code {
+  font-family: var(--mono);
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.1em 0.4em;
+  font-size: 0.85em;
+}
+.demo-shell { max-width: 1080px; margin: 0 auto; padding: 42px 24px 64px; }
+.demo-kicker { font-family: var(--mono); color: var(--green); font-size: 0.82rem; margin-bottom: 12px; }
+.demo-title { font-family: var(--mono); font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.15; letter-spacing: -0.02em; }
+.demo-lead { max-width: 680px; margin-top: 12px; color: var(--muted); }
+.demo-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 22px 0 30px; }
+.demo-pill { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; }
+.demo-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+.demo-btn { font-family: var(--mono); font-size: 0.82rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; text-decoration: none; }
+.demo-btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.demo-btn-primary { background: var(--accent); color: #14100a; border-color: var(--accent); font-weight: 700; }
+.demo-btn-primary:hover { color: #14100a; }
+.demo-foot { margin-top: 46px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--muted); }
+.demo-foot a { color: var(--accent); }
+@media (max-width: 640px) {
+  .demo-shell { padding: 26px 16px 48px; }
+  .demo-actions { margin-left: 0; width: 100%; }
+}
+
+/* ============ How It Works — interactive pipeline demos ============ */
+
+.hiw {
+  margin-top: 8px;
+}
+
+.hiw-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.hiw-switch-btn {
+  font-family: var(--mono);
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--dur-fast, 0.15s) ease, border-color var(--dur-fast, 0.15s) ease, background var(--dur-fast, 0.15s) ease;
+  font-size: 0.9rem;
+  padding: 10px 16px;
+}
+
+.hiw-switch-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.hiw-switch-btn.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.hiw-switch-btn:focus-visible,
+.hiw-run:focus-visible,
+.hiw-reset:focus-visible,
+.hiw-gate-btn:focus-visible,
+.hiw-lead-card input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hiw-setup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.hiw-lead-card {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+}
+
+.hiw-lead-card legend {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 0 6px;
+}
+
+.hiw-lead-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.hiw-lead-card input {
+  width: 170px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+/* AR demo — live tone chip */
+.hiw-tone-line {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hiw-tone {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--green);
+}
+
+.hiw-tone.is-friendly { color: var(--green); }
+.hiw-tone.is-firm { color: var(--accent); }
+.hiw-tone.is-urgent { color: #e5534b; }
+
+/* AR demo — invoice tracker table */
+.hiw-sheet {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  margin-bottom: 10px;
+}
+
+.hiw-sheet th,
+.hiw-sheet td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.hiw-sheet th {
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+}
+
+.hiw-sheet td.is-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.hiw-sheet td.is-act {
+  color: var(--green);
+}
+
+.hiw-sheet tr.is-target td {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.hiw-sheet tr.is-skip {
+  opacity: 0.55;
+}
+
+.hiw-sheet tr.is-skip td.is-act {
+  color: var(--muted);
+}
+
+.hiw-board-note + .hiw-log,
+.hiw-mail + .hiw-log {
+  margin-top: 10px;
+}
+
+#hiw-inv-client {
+  width: 190px;
+}
+
+@media (max-width: 640px) {
+  .hiw-sheet {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+.hiw-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hiw-run {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #141005;
+  cursor: pointer;
+  transition: filter var(--dur-fast, 0.15s) ease;
+}
+
+.hiw-run:hover {
+  filter: brightness(1.08);
+}
+
+.hiw-run:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.hiw-reset {
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  padding: 11px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color var(--dur-fast, 0.15s) ease, border-color var(--dur-fast, 0.15s) ease;
+}
+
+.hiw-reset:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.hiw-wrap {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.09) 1px, transparent 1px);
+  background-size: 24px 24px;
+  overflow: hidden;
+}
+
+.hiw-flow {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: pointer;
+  outline: none;
+}
+
+.hiw-flow:focus-visible,
+.hiw-pause:focus-visible,
+.hiw-run:focus-visible,
+.hiw-reset:focus-visible,
+.hiw-gate-btn:focus-visible,
+.hiw-slider:focus-visible,
+.hiw-select:focus-visible,
+.hiw-chip:focus-visible,
+.hiw-lead-card input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hiw-pause {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: rgba(22, 29, 40, 0.75);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--dur-fast, 0.15s) ease, border-color var(--dur-fast, 0.15s) ease;
+}
+
+.hiw-pause:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.hiw-pause[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.hiw-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 0 0;
+  padding: 14px 18px;
+  text-align: center;
+}
+
+.hiw-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hiw-metric-label {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.hiw-metric-value {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hiw-metric-ok {
+  color: var(--green);
+}
+
+.hiw-inspect {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 14px 16px 16px;
+  transition: border-color var(--dur-fast, 0.15s) ease;
+}
+
+.hiw-ins-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.hiw-ins-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--green);
+  flex: none;
+}
+
+.hiw-ins-icon {
+  font-size: 1rem;
+}
+
+.hiw-ins-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.hiw-ins-tag {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+.hiw-ins-desc {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+  max-width: 640px;
+}
+
+.hiw-console {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-alt);
+  padding: 14px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 26px;
+}
+
+.hiw-cgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hiw-clabel {
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.hiw-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hiw-slider {
+  appearance: none;
+  width: 120px;
+  height: 6px;
+  border-radius: 4px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+
+.hiw-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s ease;
+}
+
+.hiw-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.hiw-slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+}
+
+.hiw-slider-val {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-width: 36px;
+}
+
+.hiw-select-wrap {
+  position: relative;
+}
+
+.hiw-select {
+  appearance: none;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 8px 32px 8px 12px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.hiw-select:hover {
+  border-color: var(--accent);
+}
+
+.hiw-select-wrap::after {
+  content: "▾";
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-58%);
+  color: var(--muted);
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+.hiw-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.hiw-chip {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 8px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color var(--dur-fast, 0.15s) ease, border-color var(--dur-fast, 0.15s) ease, background var(--dur-fast, 0.15s) ease;
+}
+
+.hiw-chip:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.hiw-chip.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.hiw-visual {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  min-height: 170px;
+  overflow-x: auto;
+}
+
+.hiw-hint {
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.hiw-log {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.hiw-board {
+  display: flex;
+  gap: 10px;
+  min-width: 520px;
+}
+
+.hiw-col {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 8px;
+}
+
+.hiw-col h4 {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.hiw-lead {
+  font-size: 0.78rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+
+.hiw-lead.is-live {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.hiw-lead.is-old {
+  opacity: 0.6;
+}
+
+.hiw-board-note {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.hiw-model {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--green);
+  margin-bottom: 10px;
+}
+
+.hiw-type {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  min-height: 140px;
+}
+
+.hiw-type::after {
+  content: "▌";
+  color: var(--accent);
+  animation: hiw-caret 1s steps(1) infinite;
+}
+
+.hiw-type.done::after {
+  content: none;
+}
+
+@keyframes hiw-caret {
+  50% { opacity: 0; }
+}
+
+.hiw-mail {
+  max-width: 560px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.hiw-mail-head {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 12px;
+  background: var(--accent-soft);
+}
+
+.hiw-mail-tag {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--accent);
+  border: 1px dashed var(--accent);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.hiw-mail-row {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 8px 12px 0;
+}
+
+.hiw-mail-body {
+  white-space: pre-wrap;
+  padding: 10px 12px 4px;
+  font-size: 0.88rem;
+}
+
+.hiw-cta {
+  display: inline-block;
+  margin: 8px 12px 14px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #141005;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: default;
+}
+
+.hiw-gate {
+  text-align: center;
+  padding: 10px 0 2px;
+}
+
+.hiw-gate-text {
+  font-size: 0.95rem;
+  margin-bottom: 14px;
+}
+
+.hiw-gate-btn {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 11px 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--green);
+  color: #ffffff;
+  cursor: pointer;
+  transition: filter var(--dur-fast, 0.15s) ease;
+}
+
+.hiw-gate-btn:hover {
+  filter: brightness(1.1);
+}
+
+.hiw-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.hiw-bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.86rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.hiw-bubble.show {
+  opacity: 1;
+  transform: none;
+}
+
+.hiw-bubble.ai {
+  align-self: flex-start;
+  background: var(--accent-soft);
+  border-bottom-left-radius: 4px;
+}
+
+.hiw-bubble.cu {
+  align-self: flex-end;
+  background: var(--bg);
+  border-bottom-right-radius: 4px;
+}
+
+.hiw-call {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 12px 14px;
+}
+
+.hiw-call-line {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+}
+
+.hiw-call-sub {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 6px;
+}
+
+.hiw-json {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.hiw-cal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.hiw-hour {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.hiw-hour.is-busy {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.hiw-hour.is-target {
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 700;
+}
+
+.hiw-hour.is-bad {
+  border-color: #e5534b;
+  color: #e5534b;
+}
+
+.hiw-verdict {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+
+.hiw-event {
+  border: 1px solid var(--green);
+  border-radius: 10px;
+  background: rgba(46, 168, 134, 0.08);
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.hiw-tg {
+  max-width: 520px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  border-bottom-left-radius: 4px;
+  background: var(--accent-soft);
+  font-size: 0.9rem;
+}
+
+
+
+.hiw-status {
+  margin-top: 14px;
+  min-height: 1.4em;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.hiw-note {
+  margin-top: 24px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+@media (max-width: 700px) {
+  .hiw-setup {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hiw-lead-card label {
+    flex: 1 1 40%;
+  }
+
+  .hiw-lead-card input {
+    width: 100%;
+  }
+
+  .hiw-board {
+    min-width: 480px;
+  }
+}
+</style>
+</head>
+<body>
+<main class="demo-shell">
+  <p class="demo-kicker">$ demo ar</p>
+  <h1 class="demo-title">AR Invoice Reminder — pipeline simulation</h1>
+  <p class="demo-lead">An overdue invoice, a tone computed from days past due, a Gmail draft — and a human who presses send.</p>
+
+  <div class="demo-bar">
+    <span class="demo-pill">runs in your browser</span>
+    <span class="demo-pill">no APIs · no keys · no side effects</span>
+    <div class="demo-actions">
+      <a class="demo-btn demo-btn-primary" href="https://potaterrr.github.io/projects/ar-invoice-reminder/">Project page ↗</a>
+      <a class="demo-btn" href="https://github.com/potaterrr/ar-invoice-reminder-agent">Repo ↗</a>
+    </div>
+  </div>
+
+  <div class="hiw" id="hiw" data-default-demo="ar">
+<div class="hiw-panel" id="hiw-panel-ar" aria-label="Pipeline demo" hidden>
+      <div class="hiw-setup">
+        <fieldset class="hiw-lead-card">
+          <legend>🧾 Thursday's invoices — edit me</legend>
+          <label>Client <input id="hiw-inv-client" type="text" value="Blue Harbor Studio" maxlength="40" autocomplete="off" /></label>
+          <label>Invoice # <input id="hiw-inv-number" type="text" value="INV-1043" maxlength="20" autocomplete="off" /></label>
+          <label>Amount (USD) <input id="hiw-inv-amount" type="text" value="820.00" maxlength="12" inputmode="decimal" autocomplete="off" /></label>
+          <label>Days overdue <input id="hiw-inv-days" type="number" value="23" min="1" max="365" step="1" /></label>
+        </fieldset>
+        <p class="hiw-tone-line">Code picks the tone: <span class="hiw-tone is-firm" id="hiw-ar-tone">Firm &amp; Direct</span></p>
+        <div class="hiw-actions">
+          <button type="button" class="hiw-run">▶ Run the invoice run</button>
+          <button type="button" class="hiw-reset" hidden>↺ Reset</button>
+        </div>
+      </div>
+      <div class="hiw-wrap">
+        <canvas class="hiw-flow" id="hiw-flow-ar" width="640" height="300" role="group" aria-label="AR Invoice Reminder pipeline map — click a node for details" tabindex="0"></canvas>
+        <button type="button" class="hiw-pause" data-pause="ar" aria-label="Pause packet animation" aria-pressed="false">⏸</button>
+      </div>
+      <div class="hiw-metrics">
+        <div class="hiw-metric"><span class="hiw-metric-label">Current Stage</span><span class="hiw-metric-value" id="hiw-m-stage-ar">Schedule Trigger</span></div>
+        <div class="hiw-metric"><span class="hiw-metric-label">Live Packets</span><span class="hiw-metric-value" id="hiw-m-packets-ar">15</span></div>
+        <div class="hiw-metric"><span class="hiw-metric-label">Status</span><span class="hiw-metric-value hiw-metric-ok" id="hiw-m-status-ar">healthy</span></div>
+      </div>
+      <div class="hiw-inspect" id="hiw-detail-ar">
+        <div class="hiw-ins-head">
+          <span class="hiw-ins-dot"></span>
+          <span class="hiw-ins-icon">⏰</span>
+          <span class="hiw-ins-name">Daily AR Check</span>
+          <span class="hiw-ins-tag">n8n · scheduleTrigger</span>
+        </div>
+        <p class="hiw-ins-desc">The workflow wakes up at 09:00 every morning and reads the invoice tracker.</p>
+        <div class="hiw-visual"></div>
+      </div>
+      <div class="hiw-console">
+        <div class="hiw-cgroup">
+          <span class="hiw-clabel">Pipeline velocity</span>
+          <div class="hiw-slider-row">
+            <input type="range" class="hiw-slider" id="hiw-speed-ar" min="0" max="3" step="0.5" value="1" aria-label="Packet speed" />
+            <span class="hiw-slider-val" id="hiw-speed-val-ar">1.0x</span>
+          </div>
+        </div>
+        <div class="hiw-cgroup">
+          <span class="hiw-clabel">Failure drill</span>
+          <div class="hiw-select-wrap">
+            <select class="hiw-select hiw-drill" id="hiw-drill-ar" aria-label="Simulate an invoice-run disturbance">
+              <option value="none">No errors</option>
+              <option value="empty">Parser gets an empty reply</option>
+              <option value="cooldown">Every row inside the cooldown</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <p class="hiw-status" aria-live="polite">Ready — hit “Run the invoice run”.</p>
+    </div>
+
+    <p class="hiw-note">Same nodes as production, zero side effects: everything runs in simulation with synthetic data.</p>
+  </div>
+
+  <p class="demo-foot">Standalone demo for <a href="https://github.com/potaterrr/ar-invoice-reminder-agent">ar-invoice-reminder-agent</a> · part of <a href="https://potaterrr.github.io/projects/">potaterrr.github.io/projects</a>. Open this file locally or serve the folder with any static host.</p>
+</main>
+<script>
+/* potaterrr.github.io — "How it works" pipeline demos.
+   SVG node-graph canvas styled after a flow-visualizer: dotted grid,
+   node rects and animated flow-light edges.
+   Vanilla JS, zero dependencies, zero APIs. The voice-receptionist data
+   mirrors simulator/payload-*.json in the voice-receptionist repo. All
+   visitor-derived text is inserted with textContent only. */
+(function () {
+  "use strict";
+
+  const hiwRoot = document.getElementById("hiw");
+  if (!hiwRoot) return;
+
+  const still = () =>
+    document.documentElement.classList.contains("reduce-motion") ||
+    (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+
+  const rawSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const emailOf = (name, company) => {
+    const local = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, ".") || "lead";
+    const domain = company.trim().toLowerCase().replace(/[^a-z0-9]+/g, "") || "example";
+    return local + "@" + domain + ".com";
+  };
+
+  const tomorrow1400 = () => {
+    const d = new Date(Date.now() + 86400000);
+    const p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T14:00";
+  };
+
+  /* ---------- shared visual builders (detail panel) ---------- */
+
+  const hint = (v, text) =>
+    v.appendChild(el("p", "hiw-hint", text || "▶ run the pipeline to populate this stage"));
+
+  const logBlock = (v, lines) => {
+    const box = el("div", "hiw-log");
+    lines.forEach((l) => box.appendChild(el("div", null, l)));
+    v.appendChild(box);
+  };
+
+  const board = (v, leadName, stage) => {
+    const cols = ["TO DO", "Draft Done", "Follow-up Sent"];
+    const wrap = el("div", "hiw-board");
+    cols.forEach((label, ci) => {
+      const col = el("div", "hiw-col");
+      col.appendChild(el("h4", null, label));
+      const live =
+        (ci === 0 && stage === "todo") ||
+        (ci === 1 && stage === "draft") ||
+        (ci === 2 && stage === "sent");
+      if (live) col.appendChild(el("div", "hiw-lead is-live", "⭐ " + leadName));
+      if (ci === 0) {
+        ["Kwento.ph editorial calendar", "Northwind Cafe loyalty bot"].forEach((t) =>
+          col.appendChild(el("div", "hiw-lead", t))
+        );
+      }
+      if (ci === 1) col.appendChild(el("div", "hiw-lead is-old", "yesterday's lead"));
+      wrap.appendChild(col);
+    });
+    v.appendChild(wrap);
+  };
+
+  const boardNote = (v, text) => v.appendChild(el("p", "hiw-board-note", text));
+
+  const mailCard = (v, lead, body) => {
+    const card = el("div", "hiw-mail");
+    const head = el("div", "hiw-mail-head");
+    head.appendChild(el("span", "hiw-mail-tag", "DRAFT — never auto-sent"));
+    card.appendChild(head);
+    card.appendChild(el("div", "hiw-mail-row", "To: " + emailOf(lead.name, lead.company)));
+    card.appendChild(el("div", "hiw-mail-row", "Subject: 🔍 Quick check-in — " + lead.company));
+    const bodyEl = el("div", "hiw-mail-body");
+    bodyEl.textContent = body;
+    card.appendChild(bodyEl);
+    const cta = el("span", "hiw-cta", "Schedule a call");
+    cta.title = "Demo button — the real one links to my booking form";
+    card.appendChild(cta);
+    v.appendChild(card);
+  };
+
+  const callCard = (v, sc) => {
+    const c = el("div", "hiw-call");
+    c.appendChild(el("div", "hiw-call-line", "📞 incoming call · " + sc.num));
+    c.appendChild(el("div", "hiw-call-sub", "🔇 missed / after hours — Retell voice agent picks up"));
+    v.appendChild(c);
+  };
+
+  /* ---------- demo 1 · Dead Lead Retrieval (n8n) ---------- */
+
+  const dlfEmail = (lead) =>
+    "Hi " + lead.name + ",\n\n" +
+    "It's been a few weeks since we talked about " + lead.interest + " over at " + lead.company +
+    " — I wanted to check in and see whether that's still on your radar.\n\n" +
+    "If it is, I'd love to hear how things are going:\n" +
+    "— what you ended up doing about " + lead.interest + "\n" +
+    "— where " + lead.company + " is spending the most manual time now\n\n" +
+    "Worth a quick call?\n\n" +
+    "Potater";
+
+  const DLF = {
+    ready: "Ready — hit “Run the pipeline” or click any node.",
+    done: "Pipeline complete — AI drafted, human approved, nothing auto-sent. 🥔",
+    stages: [
+      {
+        icon: "⏰", name: "Schedule Trigger", short: "Schedule Trigger",
+        type: "n8n · scheduleTrigger", pause: 950,
+        desc: "The pipeline wakes up every morning at 10:00 — nobody clicks anything.",
+        build(v) {
+          logBlock(v, [
+            "› workflow activated · cron 0 10 * * 1-5",
+            "› timezone: Asia/Manila",
+            "› trigger fired — starting run",
+          ]);
+        },
+      },
+      {
+        icon: "📋", name: "Get Dead Leads", short: "Get Dead Leads",
+        type: "n8n · clickUp.getAll", pause: 1200,
+        desc: "Pulls every task still marked TO DO from the ClickUp list — the board is the database.",
+        build(v, ctx) {
+          board(v, ctx.lead.name, "todo");
+          boardNote(v, "server-side filter: status = TO DO · lead queued with 2 others");
+        },
+      },
+      {
+        icon: "✍️", name: "Generate AI Follow-up", short: "AI Follow-up",
+        type: "langchain · aiAgent", pause: 600,
+        desc: "An LLM writes a short, warm check-in from the lead's custom fields. Prompt rules forbid invented links or names.",
+        build(v, ctx) {
+          v.appendChild(el("p", "hiw-model", "openrouter · google/gemini-2.5-flash-lite"));
+          const out = el("div", "hiw-type");
+          v.appendChild(out);
+          const text = dlfEmail(ctx.lead);
+          if (!ctx.live || still()) {
+            out.textContent = text;
+            out.classList.add("done");
+            return null;
+          }
+          const isLive = ctx.token;
+          return new Promise((done) => {
+            let i = 0;
+            const step = Math.max(2, Math.round(text.length / 90));
+            const tick = () => {
+              if (!isLive()) { done(); return; }
+              i = Math.min(text.length, i + step);
+              out.textContent = text.slice(0, i);
+              if (i < text.length) {
+                setTimeout(tick, 24);
+              } else {
+                out.classList.add("done");
+                done();
+              }
+            };
+            tick();
+          });
+        },
+      },
+      {
+        icon: "📨", name: "Create a draft", short: "Create a draft",
+        type: "n8n · gmail.draft", pause: 1300,
+        desc: "Files the email as a Gmail draft with a booking button — and never sends it.",
+        build(v, ctx) {
+          mailCard(v, ctx.lead, dlfEmail(ctx.lead));
+        },
+      },
+      {
+        icon: "🏷️", name: "Set Draft Done", short: "Set Draft Done",
+        type: "n8n · clickUp.update", pause: 1100,
+        desc: "The task flips to Draft Done in the same run, so tomorrow's sweep never double-drafts.",
+        build(v, ctx) {
+          board(v, ctx.lead.name, "draft");
+          boardNote(v, "duplicate protection: status advance + draft existence = one draft per lead");
+        },
+      },
+      {
+        icon: "🫵", name: "You", short: "You",
+        type: "human in the loop", pause: 1200,
+        desc: "The only unskippable step: a person opens the draft, edits if needed, and hits send. AI drafts; human approves.",
+        build(v, ctx) {
+          mailCard(v, ctx.lead, dlfEmail(ctx.lead));
+          const gate = el("div", "hiw-gate");
+          gate.appendChild(el("p", "hiw-gate-text", "📤 1 draft waiting for review — nothing sends itself."));
+          const btn = el("button", "hiw-gate-btn", "✅ Approve & send (the human part)");
+          btn.type = "button";
+          gate.appendChild(btn);
+          v.appendChild(gate);
+          const finish = () => {
+            v.textContent = "";
+            board(v, ctx.lead.name, "sent");
+            boardNote(v, "✉️ sent by a human — lifecycle: TO DO → Draft Done → Follow-up Sent");
+            ctx.status("📮 Draft sent — lead resurrected. 🥔");
+          };
+          if (!ctx.live) {
+            btn.addEventListener("click", finish, { once: true });
+            return null;
+          }
+          const isLive = ctx.token;
+          return new Promise((done) => {
+            btn.addEventListener(
+              "click",
+              () => {
+                if (!isLive()) { done(); return; }
+                finish();
+                done();
+              },
+              { once: true }
+            );
+          });
+        },
+      },
+    ],
+  };
+
+  /* ---------- demo 2 · AI Voice Receptionist (Make / n8n / Zapier) ---------- */
+
+  const SCENARIOS = {
+    bookable: {
+      num: "+63 917 123 4567", name: "Maria Santos",
+      intent: "book_appointment", service: "general_consultation",
+      slot: "TOMORROW_1400", bad: false,
+      transcript: [
+        ["ai", "Thank you for calling Potaterrr Clinic, how may I help you?"],
+        ["cu", "Hi, I'd like to book a general consultation tomorrow afternoon."],
+        ["ai", "Sure! May I get your name?"],
+        ["cu", "Maria Santos."],
+        ["ai", "Any time preference?"],
+        ["cu", "Around 2 PM please."],
+      ],
+      summary: "Maria Santos wants a general consultation at 2 PM tomorrow.",
+      logline: "[bookable] call logged · calendar event created ✓",
+      alert: "🤖 Clinic bot → front desk: ✅ Booked a general consultation for Maria Santos — tomorrow 14:00. Calendar updated.",
+    },
+    question: {
+      num: "+63 920 111 1222", name: "—",
+      intent: "question", service: "annual_physical",
+      slot: null, bad: false,
+      transcript: [
+        ["ai", "Thank you for calling Potaterrr Clinic, how may I help you?"],
+        ["cu", "How long does an annual physical take?"],
+        ["ai", "An annual physical takes about 45 minutes. Walk-ins are accepted until 4 PM."],
+        ["cu", "Okay, I'll think about it, thanks!"],
+      ],
+      summary: "Caller asked about annual physical duration and walk-ins; no booking made.",
+      logline: "[no_booking] call logged · no event created",
+      alert: "🤖 Clinic bot → front desk: 💬 Caller asked about annual physicals and walk-ins — no booking, flagged for follow-up.",
+    },
+    invalid: {
+      num: "+63 927 333 4444", name: "Ana Reyes",
+      intent: "book_appointment", service: "follow_up",
+      slot: "2026-08-24T10:00", bad: true,
+      transcript: [
+        ["ai", "Thank you for calling Potaterrr Clinic, how may I help you?"],
+        ["cu", "I want a follow-up last Monday morning."],
+        ["ai", "I'm sorry, I can only book future appointments."],
+        ["cu", "Ah okay, forget it then."],
+      ],
+      summary: "Ana Reyes asked for a past follow-up slot; not bookable, needs follow-up.",
+      logline: "[conflict] call logged · flagged for human follow-up",
+      alert: "🤖 Clinic bot → front desk: ⚠️ Ana Reyes asked for a past follow-up slot — needs human follow-up.",
+    },
+  };
+
+  const SERVICE_LABEL = {
+    general_consultation: "General consultation",
+    follow_up: "Follow-up",
+    annual_physical: "Annual physical",
+    vaccination: "Vaccination",
+  };
+
+  const VR = {
+    ready: "Ready — pick a call, then hit “Run the call” or click any node.",
+    done: "Call handled end-to-end — the caller never waited, the front desk never lifted a finger. 🥔",
+    stages: [
+      {
+        icon: "📵", name: "Missed call → Retell", short: "Missed call",
+        type: "Retell + phone number", pause: 1200,
+        desc: "Nobody picks up, or it's after hours. Retell answers instantly with a voice agent — 24/7.",
+        build(v, ctx) {
+          callCard(v, ctx.sc);
+        },
+      },
+      {
+        icon: "🗣️", name: "Conversation", short: "Conversation",
+        type: "Retell agent", pause: 2100,
+        desc: "Natural chat: answers questions about services and hours from the clinic config, and captures name, number, intent and preferred slot as structured data.",
+        build(v, ctx) {
+          v.appendChild(el("p", "hiw-model", "🎙 Retell agent · Potaterrr Clinic"));
+          const wrap = el("div", "hiw-chat");
+          ctx.sc.transcript.forEach(([who, text], i) => {
+            const b = el("div", "hiw-bubble " + who, (who === "ai" ? "🤖 " : "🙋 ") + text);
+            b.style.transitionDelay = still() ? "0ms" : i * 260 + "ms";
+            wrap.appendChild(b);
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => b.classList.add("show"))
+            );
+          });
+          v.appendChild(wrap);
+        },
+      },
+      {
+        icon: "🧾", name: "Call analyzed report", short: "Call report",
+        type: "webhook · POST", pause: 1500,
+        desc: "Retell POSTs one structured JSON report to the branch webhook after analysis. Same contract whether the branch runs on Make, n8n or Zapier — swap platforms by changing a single URL.",
+        build(v, ctx) {
+          const sc = ctx.sc;
+          const payload = {
+            event: "call_analyzed",
+            call: {
+              call_id: "sim-web-001",
+              from_number: sc.num.replace(/\s/g, ""),
+              to_number: "+16315550123",
+              direction: "inbound",
+              call_status: "ended",
+              transcript: sc.transcript.map(([who, text]) => (who === "ai" ? "Agent" : "Caller") + ": " + text).join(" "),
+              call_analysis: {
+                call_summary: sc.summary,
+                call_successful: true,
+                user_sentiment: "Positive",
+                custom_analysis_data: {
+                  caller_name: sc.name === "—" ? null : sc.name,
+                  callback_number: sc.num.replace(/\s/g, ""),
+                  intent: sc.intent,
+                  service: sc.service,
+                  preferred_slot: sc.slot === "TOMORROW_1400" ? tomorrow1400() : sc.slot,
+                },
+              },
+            },
+          };
+          v.appendChild(el("p", "hiw-model", (PLATFORM_LABEL[ctx.platform] || "Branch webhook") + " · receives this report"));
+          v.appendChild(el("p", "hiw-model", "POST /webhook · content-type: application/json"));
+          v.appendChild(el("pre", "hiw-json", JSON.stringify(payload, null, 2)));
+        },
+      },
+      {
+        icon: "🔍", name: "Conflict-check", short: "Conflict-check",
+        type: "Google Calendar · freebusy", pause: 1400,
+        desc: "Booking intent? The pipeline checks the calendar before touching anything. Questions skip straight to logging.",
+        build(v, ctx) {
+          const sc = ctx.sc;
+          if (sc.intent === "book_appointment") {
+            const cal = el("div", "hiw-cal");
+            ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"].forEach((h) => {
+              const chip = el(
+                "span",
+                "hiw-hour" + (h === "10:00" || h === "13:00" ? " is-busy" : ""),
+                h
+              );
+              if (h === "14:00" && !sc.bad) chip.classList.add("is-target");
+              cal.appendChild(chip);
+            });
+            if (sc.bad) cal.appendChild(el("span", "hiw-hour is-bad", "← " + sc.slot.slice(11) + " (past)"));
+            v.appendChild(cal);
+            const verdict = el(
+              "p",
+              "hiw-verdict",
+              sc.bad
+                ? "✗ requested slot is in the past — not bookable."
+                : "✓ 14:00 tomorrow is free — booking it."
+            );
+            if (sc.bad) verdict.style.color = "#e5534b";
+            v.appendChild(verdict);
+          } else {
+            v.appendChild(el("p", "hiw-verdict", "ℹ️ intent = question → no slot to check; logging for follow-up."));
+          }
+        },
+      },
+      {
+        icon: "📅", name: "Book & log", short: "Book & log",
+        type: "Google Calendar + log store", pause: 1400,
+        desc: "Free slot → the event “Clinic: {service} — {name}” is created and the call is logged. Taken, past, or no booking? Logged as conflict / no_booking for the record.",
+        build(v, ctx) {
+          const sc = ctx.sc;
+          if (sc.intent === "book_appointment" && !sc.bad) {
+            v.appendChild(
+              el("div", "hiw-event", "📅 Clinic: " + (SERVICE_LABEL[sc.service] || sc.service) + " — " + sc.name + " · tomorrow 14:00–14:30 (Asia/Manila)")
+            );
+          }
+          logBlock(v, [sc.logline]);
+        },
+      },
+      {
+        icon: "📣", name: "Owner alert", short: "Owner alert",
+        type: "Telegram / Gmail", pause: 1100,
+        desc: "The front desk gets a summary the second the call ends — zero missed calls, zero phone tag. The channel is just a config value per branch.",
+        build(v, ctx) {
+          v.appendChild(el("p", "hiw-model", CHANNEL_LABEL[ctx.platform] || "Alert channel"));
+          v.appendChild(el("div", "hiw-tg", ctx.sc.alert));
+        },
+      },
+    ],
+  };
+
+  /* ---------- demo 3 · AR Invoice Reminder (n8n) ---------- */
+
+  const TONE = {
+    friendly: { label: "Friendly", cls: "is-friendly" },
+    firm: { label: "Firm & Direct", cls: "is-firm" },
+    urgent: { label: "Urgent & Solution-Oriented", cls: "is-urgent" },
+  };
+
+  const toneFor = (days) => (days <= 14 ? "friendly" : days <= 30 ? "firm" : "urgent");
+
+  const money = (n) =>
+    "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
+
+  const arSubject = (inv) =>
+    (inv.days > 30 ? "Action needed" : inv.days > 14 ? "Payment reminder" : "Quick nudge") +
+    " · invoice " + inv.number;
+
+  const arEmail = (inv) => {
+    const amt = money(inv.amount);
+    const late = plural(inv.days, "day");
+    let body;
+    if (inv.days <= 14) {
+      body =
+        "Hi " + inv.client + ",\n\nJust a friendly nudge that invoice " + inv.number +
+        " for " + amt + " was due " + late + " ago. If it's already on its way, please ignore this — and thank you.\n\n";
+    } else if (inv.days <= 30) {
+      body =
+        "Hi " + inv.client + ",\n\nInvoice " + inv.number + " for " + amt + " is now " +
+        late + " past due. Could you confirm a payment date today so we can keep your account current?\n\n";
+    } else {
+      body =
+        "Hi " + inv.client + ",\n\nInvoice " + inv.number + " for " + amt + " is " + late +
+        " past due and needs attention this week. If paying in full isn't possible right now, " +
+        "reply with a date and we'll set up a payment plan that works.\n\n";
+    }
+    return body + "Regards,\n[Billing Team]";
+  };
+
+  /* the tracker as the workflow sees it: two rows that must be skipped */
+  const invoiceSheet = (v, inv, allCool) => {
+    const rows = [
+      { num: "INV-1039", client: "Northwind Cafe", amount: 1450, days: 41, act: "chase" },
+      { num: inv.number, client: inv.client, amount: inv.amount, days: inv.days, act: "chase", target: true },
+      { num: "INV-1041", client: "Kwento.ph", amount: 610, days: 12, act: "paid" },
+      { num: "INV-1042", client: "Alamat Studio", amount: 980, days: 9, act: "cool" },
+    ];
+    const table = el("table", "hiw-sheet");
+    const head = el("tr");
+    ["Invoice", "Client", "Amount", "Days late", "Action"].forEach((h) =>
+      head.appendChild(el("th", null, h))
+    );
+    const thead = el("thead");
+    thead.appendChild(head);
+    table.appendChild(thead);
+    const tbody = el("tbody");
+    rows.forEach((r) => {
+      const tr = el("tr");
+      if (r.target) tr.className = "is-target";
+      if (r.act !== "chase") tr.className += " is-skip";
+      tr.appendChild(el("td", "is-num", r.num));
+      tr.appendChild(el("td", null, r.client));
+      tr.appendChild(el("td", "is-num", money(r.amount)));
+      tr.appendChild(el("td", "is-num", r.days === 0 ? "—" : String(r.days)));
+      const verdict = el("td", "is-act");
+      if (r.act === "paid") verdict.textContent = "skip · paid";
+      else if (r.act === "cool") verdict.textContent = allCool ? "skip · chased today" : "skip · 7-day cooldown";
+      else verdict.textContent = allCool ? "skip · cooldown" : "draft reminder";
+      tr.appendChild(verdict);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    v.appendChild(table);
+    v.appendChild(
+      el("p", "hiw-board-note", "source: Google Sheets · Invoices tab · tone and cooldown are decided in code before the model runs")
+    );
+  };
+
+  const arMailCard = (v, inv, subject, body) => {
+    const card = el("div", "hiw-mail");
+    const head = el("div", "hiw-mail-head");
+    head.appendChild(el("span", "hiw-mail-tag", "DRAFT — never auto-sent"));
+    card.appendChild(head);
+    card.appendChild(el("div", "hiw-mail-row", "To: " + emailOf(inv.client, inv.client)));
+    card.appendChild(el("div", "hiw-mail-row", "Subject: " + subject));
+    const bodyEl = el("div", "hiw-mail-body");
+    bodyEl.textContent = body;
+    card.appendChild(bodyEl);
+    v.appendChild(card);
+  };
+
+  const AR = {
+    ready: "Ready — edit the invoice, then hit “Run the invoice run” or click any node.",
+    done: "Run complete — reminder drafted, follow-up logged, nothing sent. A human still presses send. 🥔",
+    stages: [
+      {
+        icon: "⏰", name: "Daily AR Check", short: "Daily check",
+        type: "n8n · scheduleTrigger", pause: 950,
+        desc: "The workflow wakes up at 09:00 on weekdays, on its own. Chasing invoices is the work nobody schedules — so it gets scheduled here.",
+        build(v) {
+          logBlock(v, [
+            "› workflow activated · cron 0 9 * * 1-5",
+            "› timezone: Asia/Manila",
+            "› trigger fired — reading the invoice tracker",
+          ]);
+        },
+      },
+      {
+        icon: "📄", name: "Read Invoices", short: "Read invoices",
+        type: "n8n · googleSheets.getAll", pause: 1250,
+        desc: "Every row of the Invoices tab comes back: invoice number, client, amount, due date, status and the last follow-up date. The sheet is the database.",
+        build(v, ctx) {
+          invoiceSheet(v, ctx.invoice, false);
+        },
+      },
+      {
+        icon: "🧮", name: "Days overdue + tone", short: "Days + tone",
+        type: "n8n · code", pause: 1500,
+        desc: "Code drops paid and void rows, parses due dates, computes days past due, picks the tone and enforces the 7-day cooldown. None of that is left to the model.",
+        build(v, ctx) {
+          const inv = ctx.invoice;
+          const cool = ctx.live && ctx.drill === "cooldown";
+          const t = TONE[toneFor(inv.days)];
+          invoiceSheet(v, inv, cool);
+          logBlock(v, [
+            "› parse due date · formatted / Date / serial all handled",
+            "› days past due: " + inv.days,
+            "› tone: " + t.label + " (1–14 friendly · 15–30 firm · 31+ urgent)",
+            "› INV-1041 status = paid → skipped",
+            cool
+              ? "› ✋ " + inv.number + " last chased today → inside the 7-day cooldown"
+              : "› INV-1042 chased 2 days ago → cooldown, skipped",
+            cool ? "› 0 items reach the model — run ends here" : "› 2 items handed to the agent",
+          ]);
+        },
+      },
+      {
+        icon: "✍️", name: "Draft with Gemini", short: "Draft email",
+        type: "langchain · aiAgent + parser", pause: 700,
+        desc: "Gemini writes under four sentences in the tone code chose, then a Structured Output Parser forces flat JSON: email_subject and email_body, nothing else.",
+        build(v, ctx) {
+          const inv = ctx.invoice;
+          v.appendChild(el("p", "hiw-model", "openrouter · google/gemini-3-flash · maxOutputTokens 4096"));
+          if (ctx.live && ctx.drill === "empty") {
+            v.appendChild(el("pre", "hiw-json", '{\n  "email_subject": "",\n  "email_body": ""\n}'));
+            const err = el("p", "hiw-verdict", "✗ The AI model returned an empty response to the Structured Output Parser.");
+            err.style.color = "#e5534b";
+            v.appendChild(err);
+            v.appendChild(el("p", "hiw-board-note", "700 output tokens went to reasoning and never reached the JSON. 4096 leaves room for both."));
+            return null;
+          }
+          const text = JSON.stringify(
+            { email_subject: arSubject(inv), email_body: arEmail(inv) },
+            null,
+            2
+          );
+          const out = el("pre", "hiw-json");
+          v.appendChild(out);
+          if (!ctx.live || still()) {
+            out.textContent = text;
+            return null;
+          }
+          const isLive = ctx.token;
+          return new Promise((done) => {
+            let i = 0;
+            const step = Math.max(4, Math.round(text.length / 80));
+            const tick = () => {
+              if (!isLive()) { done(); return; }
+              i = Math.min(text.length, i + step);
+              out.textContent = text.slice(0, i);
+              if (i < text.length) setTimeout(tick, 22);
+              else done();
+            };
+            tick();
+          });
+        },
+      },
+      {
+        icon: "🧾", name: "Draft + log follow-up", short: "Draft + log",
+        type: "gmail.draft + sheets.update", pause: 1400,
+        desc: "The reply is cleaned, the signature is appended in code, then Gmail files it as a draft — never a send. The follow-up date goes back onto the row so tomorrow's run skips it.",
+        build(v, ctx) {
+          const inv = ctx.invoice;
+          arMailCard(v, inv, arSubject(inv), arEmail(inv));
+          logBlock(v, [
+            "› signature enforced in code (Regards, / [Billing Team])",
+            "› gmail.draft created — never sent",
+            "› sheets.update · Last Follow-Up Date = today",
+            '› notes: "Reminder drafted — awaiting human review"',
+          ]);
+        },
+      },
+      {
+        icon: "🫵", name: "You", short: "You",
+        type: "human in the loop", pause: 1200,
+        desc: "The only step that stays human: read the draft, fix the tone if the client relationship needs it, press send. Automation deleted the drudgery, not the judgment.",
+        build(v, ctx) {
+          const inv = ctx.invoice;
+          arMailCard(v, inv, arSubject(inv), arEmail(inv));
+          const gate = el("div", "hiw-gate");
+          gate.appendChild(el("p", "hiw-gate-text", "📤 1 reminder waiting in Gmail drafts — nothing sends itself."));
+          const btn = el("button", "hiw-gate-btn", "✅ Approve & send (the human part)");
+          btn.type = "button";
+          gate.appendChild(btn);
+          v.appendChild(gate);
+          const finish = () => {
+            gate.textContent = "";
+            gate.appendChild(el("p", "hiw-gate-text", "✉️ Sent by a human — " + inv.number + " marked chased for 7 days."));
+            ctx.status("🧾 Reminder sent by a human — next chase in 7 days. 🥔");
+          };
+          if (!ctx.live) {
+            btn.addEventListener("click", finish, { once: true });
+            return null;
+          }
+          const isLive = ctx.token;
+          return new Promise((done) => {
+            btn.addEventListener(
+              "click",
+              () => {
+                if (!isLive()) { done(); return; }
+                finish();
+                done();
+              },
+              { once: true }
+            );
+          });
+        },
+      },
+    ],
+  };
+
+  /* ---------- per-panel state + input readers ---------- */
+
+  const state = { dlf: { runId: 0 }, vr: { runId: 0 }, ar: { runId: 0 } };
+
+  const readLead = (panel) => {
+    const val = (id, fb) => {
+      const n = panel.querySelector("#" + id);
+      const t = n ? n.value.trim() : "";
+      return t || fb;
+    };
+    return {
+      name: val("hiw-lead-name", "Bea Mendoza"),
+      company: val("hiw-lead-company", "Sunnyside Prints"),
+      interest: val("hiw-lead-interest", "automating their Etsy order fulfilment"),
+    };
+  };
+
+  const activeScenario = (panel) => {
+    const chip = panel.querySelector(".hiw-chip.is-active");
+    return SCENARIOS[(chip && chip.getAttribute("data-scenario")) || "bookable"];
+  };
+
+  const readInvoice = (panel) => {
+    const val = (id, fb) => {
+      const n = panel.querySelector("#" + id);
+      const t = n ? String(n.value).trim() : "";
+      return t || fb;
+    };
+    const amount = Number.parseFloat(val("hiw-inv-amount", "820.00").replace(/[^0-9.]/g, ""));
+    const days = Number.parseInt(val("hiw-inv-days", "23"), 10);
+    return {
+      client: val("hiw-inv-client", "Blue Harbor Studio"),
+      number: val("hiw-inv-number", "INV-1043").toUpperCase(),
+      amount: Number.isFinite(amount) && amount > 0 ? amount : 820,
+      days: Number.isFinite(days) ? Math.max(1, Math.min(365, days)) : 23,
+    };
+  };
+
+  const DEMOS = { dlf: DLF, vr: VR, ar: AR };
+
+  const NODE_COLORS = ["#22c55e", "#3b82f6", "#a855f7", "#06b6d4", "#f59e0b", "#ec4899"];
+  const PER_LINK = 4;
+  const CW = 640;
+  const CH = 300;
+
+  const cssVar = (name, fb) => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fb;
+  };
+
+  const PLATFORM_LABEL = {
+    make: "Make.com scenario",
+    n8n: "n8n · self-hosted",
+    zapier: "Zapier Catch Hook",
+  };
+
+  const CHANNEL_LABEL = {
+    make: "Make → Telegram bot (Data Store config)",
+    n8n: "n8n → Telegram bot (Config node)",
+    zapier: "Zapier → Gmail alert",
+  };
+
+  /* ---------- canvas flow engine (ForceGraph-style, dependency-free) ---------- */
+
+  function buildFlow(canvas, hooks) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = CW * dpr;
+    canvas.height = CH * dpr;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const nodes = [];   /* filled by init(demo) */
+    const edges = [];
+    let sel = -1;
+    let active = -1;
+    const done = new Set();
+    let hover = -1;
+    let velocity = 1;
+    let paused = false;
+    let job = null; /* { edge, t, speed } */
+    let pal = null;
+    let palAge = 99;
+    let raf = null;
+    let running = true;
+
+    const bez = (e, t) => {
+      const u = 1 - t;
+      const x = u * u * e.x0 + 2 * u * t * e.cx + t * t * e.x1;
+      const y = u * u * e.y0 + 2 * u * t * e.cy + t * t * e.y1;
+      return { x, y };
+    };
+
+    /* square centred on a node; `h` is half the side */
+    const sq = (x, y, h) => ctx.rect(x - h, y - h, h * 2, h * 2);
+
+    const refreshPal = () => {
+      pal = {
+        border: cssVar("--border", "#232c3a"),
+        text: cssVar("--text", "#e6edf3"),
+        muted: cssVar("--muted", "#94a3b8"),
+        accent: cssVar("--accent", "#f0b429"),
+        green: cssVar("--green", "#2ea886"),
+        surface: cssVar("--surface", "#161d28"),
+      };
+      palAge = 0;
+    };
+
+    const init = (demo) => {
+      nodes.length = 0;
+      edges.length = 0;
+      demo.stages.forEach((s, i) => {
+        nodes.push({ x: 70 + i * 100, y: 150, color: NODE_COLORS[i % NODE_COLORS.length], icon: s.icon, label: s.short || s.name, sub: s.type || "" });
+      });
+      for (let i = 0; i < nodes.length - 1; i++) {
+        const a = nodes[i];
+        const b = nodes[i + 1];
+        edges.push({
+          x0: a.x + 24, y0: a.y, x1: b.x - 24, y1: b.y,
+          /* control point on the line itself -> the curve degenerates to a
+             straight connector, and bez() below yields straight packet motion */
+          cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2,
+          ts: [0, 0.25, 0.5, 0.75].map((o) => o),
+          active: false,
+        });
+      }
+      refreshPal();
+    };
+
+    const drawNode = (n, i) => {
+      const isSel = i === sel;
+      const isActive = i === active;
+      /* the step currently executing lights green; idle steps keep their own hue */
+      const glow = isActive ? pal.green : n.color;
+      /* outer halo ring */
+      ctx.beginPath();
+      sq(n.x, n.y, 27);
+      ctx.strokeStyle = glow + (isActive ? "66" : "26");
+      ctx.lineWidth = 3;
+      if (isActive) {
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 16;
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      /* selection ring */
+      if (isSel) {
+        ctx.beginPath();
+        ctx.setLineDash([4, 4]);
+        sq(n.x, n.y, 33);
+        ctx.strokeStyle = pal.text;
+        ctx.globalAlpha = 0.45;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
+      /* core */
+      ctx.beginPath();
+      sq(n.x, n.y, 22);
+      ctx.fillStyle = pal.surface;
+      ctx.fill();
+      ctx.strokeStyle = glow;
+      ctx.lineWidth = isActive ? 4 : 3;
+      ctx.stroke();
+      /* done check */
+      if (done.has(i)) {
+        ctx.beginPath();
+        ctx.arc(n.x + 16, n.y - 16, 7.5, 0, Math.PI * 2);
+        ctx.fillStyle = pal.green;
+        ctx.fill();
+        ctx.strokeStyle = pal.surface;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(n.x + 12.5, n.y - 16);
+        ctx.lineTo(n.x + 15.2, n.y - 13.2);
+        ctx.lineTo(n.x + 19.8, n.y - 18.6);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.8;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.stroke();
+      }
+      /* glyph + labels */
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "15px system-ui, sans-serif";
+      ctx.fillStyle = n.color;
+      ctx.fillText(n.icon, n.x, n.y + 1);
+      const below = i % 2 === 0;
+      ctx.font = "bold 13px system-ui, sans-serif";
+      ctx.fillStyle = pal.text;
+      ctx.fillText(n.label, n.x, n.y + (below ? 44 : -40));
+      ctx.font = "10.5px system-ui, sans-serif";
+      ctx.fillStyle = pal.muted;
+      ctx.fillText(n.sub, n.x, n.y + (below ? 58 : -54));
+    };
+
+    const frame = () => {
+      raf = requestAnimationFrame(frame);
+      if (!running) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, CW, CH);
+      if (++palAge > 45 || !pal) refreshPal();
+
+      /* edges + ambient packets */
+      edges.forEach((e, ei) => {
+        e.active = job ? job.edge === ei : active === ei + 1;
+        ctx.beginPath();
+        ctx.moveTo(e.x0, e.y0);
+        ctx.lineTo(e.x1, e.y1);
+        /* solid link; the one feeding the running step lights green */
+        ctx.strokeStyle = e.active ? pal.green : pal.border;
+        ctx.globalAlpha = e.active ? 0.95 : 0.9;
+        ctx.lineWidth = e.active ? 2.5 : 2;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        e.ts.forEach((t, pi) => {
+          if (!paused) {
+            t += 0.012 * velocity * (e.active ? 2.2 : 1);
+            if (t >= 1) t -= 1;
+            e.ts[pi] = t;
+          }
+          const p = bez(e, t);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, e.active ? 3.4 : 2.6, 0, Math.PI * 2);
+          if (e.active) {
+            ctx.shadowColor = pal.accent;
+            ctx.shadowBlur = 8;
+          }
+          ctx.fillStyle = pal.accent;
+          ctx.globalAlpha = e.active ? 0.95 : 0.55;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
+        });
+      });
+
+      /* job packet — the run's data traveling node to node */
+      if (job) {
+        const e = edges[job.edge];
+        if (e) {
+          if (!paused) {
+            job.t += job.speed * Math.max(velocity, 0.35);
+            if (job.t >= 1) {
+              const arrived = job.edge + 1;
+              job = null;
+              if (hooks.onJobArrive) hooks.onJobArrive(arrived);
+            }
+          }
+          if (job) {
+            const p = bez(e, job.t);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+            ctx.shadowColor = pal.green;
+            ctx.shadowBlur = 14;
+            ctx.fillStyle = pal.green;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+        } else {
+          job = null;
+        }
+      }
+
+      nodes.forEach(drawNode);
+
+      if (hooks.packets) {
+        const n = edges.length * PER_LINK + (job ? 1 : 0);
+        hooks.packets(n);
+      }
+    };
+
+    const start = () => {
+      if (raf === null) raf = requestAnimationFrame(frame);
+    };
+    document.addEventListener("visibilitychange", () => {
+      running = !document.hidden;
+      if (running) start();
+    });
+
+    const toLocal = (evt) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: ((evt.clientX - rect.left) / rect.width) * CW,
+        y: ((evt.clientY - rect.top) / rect.height) * CH,
+      };
+    };
+    const hitTest = (mx, my) => {
+      for (let i = 0; i < nodes.length; i++) {
+        const dx = mx - nodes[i].x;
+        const dy = my - nodes[i].y;
+        /* 32 clears a square's corner (22 * sqrt2 ~= 31.1) */
+        if (dx * dx + dy * dy < 32 * 32) return i;
+      }
+      return -1;
+    };
+
+    canvas.addEventListener("pointermove", (e) => {
+      const p = toLocal(e);
+      hover = hitTest(p.x, p.y);
+      canvas.style.cursor = hover >= 0 ? "pointer" : "default";
+    });
+    canvas.addEventListener("pointerleave", () => {
+      hover = -1;
+    });
+    canvas.addEventListener("click", (e) => {
+      const p = toLocal(e);
+      const i = hitTest(p.x, p.y);
+      if (i >= 0 && hooks.onNodeClick) hooks.onNodeClick(i);
+    });
+    canvas.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const dir = e.key === "ArrowRight" ? 1 : -1;
+        const next = sel < 0 ? 0 : (sel + dir + nodes.length) % nodes.length;
+        if (hooks.onNodeClick) hooks.onNodeClick(next);
+      }
+    });
+
+    start();
+
+    return {
+      init,
+      select: (i) => { sel = i; },
+      setActive: (i) => { active = i; },
+      markDone: (i) => done.add(i),
+      resetMarks: () => { done.clear(); active = -1; job = null; sel = -1; },
+      spawnJob: (target) => { job = { edge: target - 1, t: 0, speed: 0.02 }; },
+      setVelocity: (v) => { velocity = v; },
+      setPaused: (p) => { paused = p; },
+      setOnArrive: (fn) => { hooks.onJobArrive = fn; },
+      hitTest,
+    };
+  }
+
+  /* ---------- per-project build ---------- */
+
+  function buildDemo(key) {
+    const demo = DEMOS[key];
+    const panel = document.getElementById("hiw-panel-" + key);
+    if (!panel) return null;
+    const canvas = panel.querySelector(".hiw-flow");
+    const statusEl = panel.querySelector(".hiw-status");
+    const runBtn = panel.querySelector(".hiw-run");
+    const resetBtn = panel.querySelector(".hiw-reset");
+    const mStage = document.getElementById("hiw-m-stage-" + key);
+    const mPackets = document.getElementById("hiw-m-packets-" + key);
+    const mStatus = document.getElementById("hiw-m-status-" + key);
+    const pauseBtn = panel.querySelector(".hiw-pause");
+    const slider = panel.querySelector(".hiw-slider");
+    const sliderVal = panel.querySelector(".hiw-slider-val");
+    const chips = Array.prototype.slice.call(panel.querySelectorAll(".hiw-chip"));
+    const drillSel = panel.querySelector(".hiw-drill");
+    const platformSel = panel.querySelector(".hiw-platform");
+    const ins = {
+      icon: panel.querySelector(".hiw-ins-icon"),
+      name: panel.querySelector(".hiw-ins-name"),
+      tag: panel.querySelector(".hiw-ins-tag"),
+      desc: panel.querySelector(".hiw-ins-desc"),
+      visual: panel.querySelector(".hiw-visual"),
+    };
+    if (!canvas || !statusEl || !runBtn || !ins.visual) return null;
+
+    const st = state[key];
+    let sel = 0;
+
+    const flow = buildFlow(canvas, {
+      onNodeClick: (i) => select(i, browsingCtx()),
+      packets: (n) => {
+        if (mPackets) mPackets.textContent = String(n);
+      },
+    });
+    if (!flow) return null;
+    flow.init(demo);
+
+    const setStatus = (mode) => {
+      if (!mStatus) return;
+      mStatus.classList.remove("hiw-metric-ok");
+      mStatus.style.color = "";
+      if (mode === "ok") mStatus.classList.add("hiw-metric-ok");
+      if (mode === "warn") mStatus.style.color = "#f59e0b";
+      if (mode === "bad") mStatus.style.color = "#e5534b";
+    };
+
+    const browsingCtx = () => ({
+      lead: readLead(panel),
+      invoice: readInvoice(panel),
+      sc: activeScenario(panel),
+      live: false,
+      token: () => true,
+      status: (t) => { statusEl.textContent = t; },
+      drill: drillSel ? drillSel.value : "none",
+      platform: platformSel ? platformSel.value : "n8n",
+    });
+
+    const select = (i, ctx) => {
+      const len = demo.stages.length;
+      sel = (i + len) % len;
+      flow.select(sel);
+      const stg = demo.stages[sel];
+      if (mStage) mStage.textContent = stg.short || stg.name;
+      if (ins.icon) ins.icon.textContent = stg.icon;
+      if (ins.name) ins.name.textContent = stg.name;
+      if (ins.tag) ins.tag.textContent = stg.type || "";
+      if (ins.desc) ins.desc.textContent = stg.desc;
+      ins.visual.textContent = "";
+      return stg.build(ins.visual, ctx);
+    };
+
+    const waitArrival = (i, id) =>
+      new Promise((res) => {
+        if (i === 0) { res(); return; }
+        flow.spawnJob(i);
+        const check = setInterval(() => {
+          if (id !== st.runId) { clearInterval(check); flow.setOnArrive(null); res(); }
+        }, 120);
+        flow.setOnArrive((n) => {
+          if (n === i) {
+            clearInterval(check);
+            flow.setOnArrive(null);
+            res();
+          }
+        });
+      });
+
+    const dwell = async (id, ms) => {
+      const end = Date.now() + (still() ? Math.min(ms, 80) : ms);
+      while (Date.now() < end) {
+        if (id !== st.runId) return;
+        await rawSleep(50);
+      }
+    };
+
+    const reset = () => {
+      st.runId += 1;
+      runBtn.disabled = false;
+      resetBtn.hidden = true;
+      statusEl.textContent = demo.ready;
+      setStatus("ok");
+      flow.resetMarks();
+      select(0, browsingCtx());
+    };
+
+    runBtn.addEventListener("click", async () => {
+      st.runId += 1;
+      const id = st.runId;
+      let halted = null;
+      runBtn.disabled = true;
+      resetBtn.hidden = false;
+      flow.resetMarks();
+      setStatus("ok");
+
+      const ctx = {
+        lead: readLead(panel),
+        invoice: readInvoice(panel),
+        sc: activeScenario(panel),
+        live: true,
+        token: () => id === st.runId,
+        status: (t) => { if (id === st.runId) statusEl.textContent = t; },
+        drill: drillSel ? drillSel.value : "none",
+        platform: platformSel ? platformSel.value : "n8n",
+      };
+
+      try {
+        for (let i = 0; i < demo.stages.length; i++) {
+          if (id !== st.runId) return;
+          statusEl.textContent = demo.stages[i].name + "…";
+          await select(i, ctx);
+          if (i > 0) await waitArrival(i, id);
+          if (id !== st.runId) return;
+          flow.markDone(i);
+
+          if (key === "dlf" && ctx.drill === "429" && i === 2) {
+            setStatus("bad");
+            if (mStatus) mStatus.textContent = "429";
+            ctx.status("⚠️ LLM rate-limited — backing off, then retrying…");
+            await dwell(id, 2200);
+            if (id !== st.runId) return;
+            setStatus("ok");
+            if (mStatus) mStatus.textContent = "healthy";
+            ctx.status("✓ retry succeeded — draft generated on the second attempt");
+            await dwell(id, 700);
+          }
+          if (key === "dlf" && ctx.drill === "dup" && i === 4) {
+            setStatus("warn");
+            halted = "✋ Duplicate detected — this lead was already drafted, so the run stopped here. No second draft.";
+            ctx.status(halted);
+            await dwell(id, 1400);
+            break;
+          }
+          if (key === "ar" && ctx.drill === "cooldown" && i === 2) {
+            setStatus("warn");
+            if (mStatus) mStatus.textContent = "skipped";
+            halted = "✋ Every row is inside the 7-day cooldown — 0 items reach the model. Nothing drafted today.";
+            ctx.status(halted);
+            await dwell(id, 1800);
+            break;
+          }
+          if (key === "ar" && ctx.drill === "empty" && i === 3) {
+            setStatus("bad");
+            if (mStatus) mStatus.textContent = "empty";
+            ctx.status("⚠️ parser got an empty reply — retrying with a bigger token budget…");
+            await dwell(id, 2200);
+            if (id !== st.runId) return;
+            setStatus("ok");
+            if (mStatus) mStatus.textContent = "healthy";
+            ctx.status("✓ retry returned valid JSON — reminder drafted on the second attempt");
+            await select(3, Object.assign({}, ctx, { drill: "none" }));
+            await dwell(id, 700);
+          }
+          if (id !== st.runId) return;
+          await dwell(id, demo.stages[i].pause || 950);
+        }
+        if (id === st.runId) {
+          if (halted) {
+            if (mStatus) mStatus.textContent = "skipped";
+            statusEl.textContent = halted;
+          } else {
+            if (mStatus) mStatus.textContent = "healthy";
+            statusEl.textContent = demo.done;
+          }
+        }
+      } finally {
+        if (id === st.runId) {
+          flow.setActive(-1);
+          runBtn.disabled = false;
+          resetBtn.hidden = false;
+        }
+      }
+    });
+
+    resetBtn.addEventListener("click", reset);
+
+    if (pauseBtn) {
+      pauseBtn.addEventListener("click", () => {
+        const nowPaused = pauseBtn.getAttribute("aria-pressed") !== "true";
+        pauseBtn.setAttribute("aria-pressed", String(nowPaused));
+        pauseBtn.textContent = nowPaused ? "▶" : "⏸";
+        flow.setPaused(nowPaused);
+      });
+    }
+
+    if (slider) {
+      slider.addEventListener("input", () => {
+        const v = parseFloat(slider.value);
+        flow.setVelocity(v);
+        if (sliderVal) sliderVal.textContent = v.toFixed(1) + "x";
+      });
+    }
+
+    chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        chips.forEach((o) => {
+          o.classList.toggle("is-active", o === chip);
+          o.setAttribute("aria-pressed", String(o === chip));
+        });
+        reset();
+      });
+    });
+
+    [drillSel, platformSel].forEach((s) => {
+      if (s) s.addEventListener("change", reset);
+    });
+
+    /* AR: the tone chip is computed live as the invoice is edited */
+    const toneChip = panel.querySelector(".hiw-tone");
+    if (toneChip) {
+      const syncTone = () => {
+        const t = TONE[toneFor(readInvoice(panel).days)];
+        toneChip.textContent = t.label;
+        toneChip.className = "hiw-tone " + t.cls;
+      };
+      ["hiw-inv-client", "hiw-inv-number", "hiw-inv-amount", "hiw-inv-days"].forEach((id) => {
+        const n = panel.querySelector("#" + id);
+        if (n) n.addEventListener("input", syncTone);
+      });
+      syncTone();
+    }
+
+    reset();
+    return { panel, reset };
+  }
+
+  /* ---------- global wiring ---------- */
+
+  const handles = {};
+  ["dlf", "vr", "ar"].forEach((key) => {
+    const h = buildDemo(key);
+    if (h) handles[key] = h;
+  });
+
+  const switchBtns = Array.prototype.slice.call(hiwRoot.querySelectorAll("[data-hiw-switch]"));
+
+  const openDemo = (key) => {
+    switchBtns.forEach((b) => {
+      const on = b.getAttribute("data-hiw-switch") === key;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-selected", String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+    Object.keys(handles).forEach((k) => {
+      const h = handles[k];
+      const show = k === key;
+      if (!show && !h.panel.hidden) h.reset();
+      h.panel.hidden = !show;
+    });
+  };
+
+  switchBtns.forEach((b) =>
+    b.addEventListener("click", () => openDemo(b.getAttribute("data-hiw-switch")))
+  );
+
+  const switchWrap = hiwRoot.querySelector(".hiw-switch");
+  if (switchWrap) {
+    switchWrap.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const cur = switchBtns.findIndex((b) => b.classList.contains("is-active"));
+      const dir = e.key === "ArrowRight" ? 1 : switchBtns.length - 1;
+      const next = switchBtns[(cur + dir) % switchBtns.length];
+      openDemo(next.getAttribute("data-hiw-switch"));
+      next.focus();
+    });
+  }
+
+  document.querySelectorAll("[data-hiw-open]").forEach((a) => {
+    a.addEventListener("click", () => openDemo(a.getAttribute("data-hiw-open")));
+  });
+
+  /* Project pages host a single demo; the homepage used to host all three.
+     Prefer ?demo=, then data-default-demo, then whatever panels exist. */
+  const demoParam = new URLSearchParams(window.location.search).get("demo");
+  const preferred = demoParam || hiwRoot.getAttribute("data-default-demo");
+  const available = Object.keys(handles);
+  const initialDemo = preferred && handles[preferred] ? preferred : available[0];
+  if (initialDemo) openDemo(initialDemo);
+
+})();
+
+</script>
+</body>
+</html>
